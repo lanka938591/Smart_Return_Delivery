@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ReturnTrip — Smart Return-Trip Delivery Optimization</title>
+
+<!-- Leaflet (interactive maps + OpenStreetMap tiles) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<style>
+/* =========================================================================
+   THEME — navy / white / orange professional logistics palette
+   ========================================================================= */
+:root{
+  --navy:#0b2447; --navy-700:#113a6b; --navy-600:#19508f; --navy-50:#eef3fa;
+  --orange:#f97316; --orange-600:#ea6407; --orange-50:#fff3e9;
+  --ink:#1f2937; --muted:#64748b; --line:#e2e8f0; --bg:#f4f6fb; --white:#fff;
+  --green:#16a34a; --green-50:#e9f8ef; --red:#dc2626; --red-50:#fdecec;
+  --amber:#d97706; --blue:#2563eb;
+  --shadow:0 2px 8px rgba(11,36,71,.08); --shadow-lg:0 10px 30px rgba(11,36,71,.14);
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+.hidden{display:none !important}
+img{max-width:100%}
+
+/* ---- buttons ---- */
+.btn{display:inline-flex;align-items:center;gap:8px;border:none;border-radius:10px;
+  padding:10px 18px;font-weight:600;font-size:14px;transition:.15s;white-space:nowrap}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-primary:hover{background:var(--orange-600)}
+.btn-navy{background:var(--navy);color:#fff}
+.btn-navy:hover{background:var(--navy-700)}
+.btn-ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.btn-ghost:hover{border-color:var(--navy-600);color:var(--navy-600)}
+.btn-sm{padding:6px 12px;font-size:13px;border-radius:8px}
+.btn-success{background:var(--green);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-block{width:100%;justify-content:center}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---- badges / pills ---- */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;
+  font-size:12px;font-weight:700;letter-spacing:.2px}
+.b-navy{background:var(--navy-50);color:var(--navy-600)}
+.b-orange{background:var(--orange-50);color:var(--orange-600)}
+.b-green{background:var(--green-50);color:var(--green)}
+.b-red{background:var(--red-50);color:var(--red)}
+.b-gray{background:#eef2f7;color:var(--muted)}
+.b-blue{background:#e8f0fe;color:var(--blue)}
+
+/* ---- forms ---- */
+label{display:block;font-size:13px;font-weight:600;color:var(--navy);margin:0 0 5px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+  border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy-600);
+  box-shadow:0 0 0 3px rgba(25,80,143,.12)}
+.field{margin-bottom:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.err{color:var(--red);font-size:12px;margin-top:4px;min-height:14px}
+.hint{color:var(--muted);font-size:12px;margin-top:4px}
+
+/* ---- cards ---- */
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow)}
+.card-pad{padding:18px 20px}
+
+/* ---- tables ---- */
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{background:var(--navy-50);color:var(--navy);font-weight:700;font-size:12px;
+  text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0}
+tbody tr:hover{background:#fafcff}
+tbody tr:last-child td{border-bottom:none}
+.empty{padding:34px;text-align:center;color:var(--muted);font-size:14px}
+
+/* =========================================================================
+   LANDING PAGE
+   ========================================================================= */
+.nav{position:sticky;top:0;z-index:50;background:rgba(11,36,71,.96);backdrop-filter:blur(6px);
+  color:#fff;display:flex;align-items:center;gap:20px;padding:12px 28px}
+.brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:19px;letter-spacing:.3px}
+.logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--orange),#fb923c);
+  display:grid;place-items:center;font-size:20px;box-shadow:0 4px 12px rgba(249,115,22,.4)}
+.nav .links{display:flex;gap:22px;margin-left:14px;font-size:14.5px;font-weight:500}
+.nav .links a{opacity:.85}
+.nav .links a:hover{opacity:1;color:var(--orange)}
+.nav .spacer{flex:1}
+.nav .nav-cta{display:flex;gap:10px}
+.menu-btn{display:none;background:none;border:none;color:#fff;font-size:24px}
+
+.hero{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-600) 60%,#1e63ad 100%);
+  color:#fff;padding:72px 28px 80px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-120px;top:-120px;width:420px;height:420px;
+  background:radial-gradient(circle,rgba(249,115,22,.35),transparent 70%)}
+.hero-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1.1fr .9fr;
+  gap:40px;align-items:center;position:relative;z-index:2}
+.hero h1{font-size:42px;line-height:1.14;font-weight:800;margin-bottom:16px}
+.hero h1 .hl{color:var(--orange)}
+.hero p.lead{font-size:17px;opacity:.9;margin-bottom:26px;max-width:520px}
+.hero .cta-row{display:flex;gap:14px;flex-wrap:wrap}
+.hero-stats{display:flex;gap:28px;margin-top:34px}
+.hero-stats .s b{display:block;font-size:26px;color:var(--orange);font-weight:800}
+.hero-stats .s span{font-size:13px;opacity:.8}
+.hero-art{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+  border-radius:18px;padding:18px;backdrop-filter:blur(4px)}
+.hero-art .mini-route{display:flex;flex-direction:column;gap:14px}
+.stop{display:flex;align-items:center;gap:12px;font-size:14px}
+.stop .dot{width:14px;height:14px;border-radius:50%;flex:none}
+.stop .ln{color:#fff;font-weight:600}
+.stop small{opacity:.7;display:block;font-weight:400}
+.conn{height:22px;border-left:2px dashed rgba(255,255,255,.4);margin-left:6px}
+
+.section{max-width:1100px;margin:0 auto;padding:64px 28px}
+.section h2{font-size:30px;color:var(--navy);text-align:center;margin-bottom:10px;font-weight:800}
+.section .sub{text-align:center;color:var(--muted);max-width:640px;margin:0 auto 42px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.feature{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px;
+  box-shadow:var(--shadow);transition:.18s}
+.feature:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:var(--orange)}
+.feature .ic{width:50px;height:50px;border-radius:12px;background:var(--navy-50);display:grid;
+  place-items:center;font-size:24px;margin-bottom:14px}
+.feature h3{color:var(--navy);font-size:17px;margin-bottom:7px}
+.feature p{color:var(--muted);font-size:14px}
+.problem{background:#fff}
+.problem-box{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:center}
+.problem-box .bad,.problem-box .good{border-radius:var(--radius);padding:26px}
+.problem-box .bad{background:var(--red-50);border:1px solid #f6d4d4}
+.problem-box .good{background:var(--green-50);border:1px solid #cdeedd}
+.problem-box h4{font-size:17px;margin-bottom:10px}
+.problem-box .bad h4{color:var(--red)} .problem-box .good h4{color:var(--green)}
+.problem-box ul{list-style:none;font-size:14px;color:var(--ink)}
+.problem-box li{padding:5px 0 5px 24px;position:relative}
+.problem-box li::before{position:absolute;left:0}
+.problem-box .bad li::before{content:"✕";color:var(--red)}
+.problem-box .good li::before{content:"✓";color:var(--green)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;counter-reset:s}
+.step{position:relative;background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+  padding:24px 20px;box-shadow:var(--shadow)}
+.step .n{counter-increment:s;width:34px;height:34px;border-radius:50%;background:var(--orange);
+  color:#fff;display:grid;place-items:center;font-weight:800;margin-bottom:12px}
+.step .n::before{content:counter(s)}
+.step h4{color:var(--navy);font-size:16px;margin-bottom:6px}
+.step p{color:var(--muted);font-size:13.5px}
+.benefits{background:var(--navy);color:#fff}
+.benefits .grid4 .b{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;padding:22px}
+.benefits .b .ic{font-size:26px;margin-bottom:10px}
+.benefits .b h4{font-size:16px;margin-bottom:6px;color:var(--orange)}
+.benefits .b p{font-size:13.5px;opacity:.82}
+.foot{background:#071a35;color:#9fb3cc;text-align:center;padding:30px;font-size:13.5px}
+
+/* =========================================================================
+   AUTH MODAL
+   ========================================================================= */
+.overlay{position:fixed;inset:0;background:rgba(7,22,43,.55);z-index:100;display:grid;
+  place-items:center;padding:20px}
+.modal{background:#fff;border-radius:18px;width:100%;max-width:430px;box-shadow:var(--shadow-lg);
+  overflow:hidden;animation:pop .2s ease}
+@keyframes pop{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-head{background:var(--navy);color:#fff;padding:20px 24px;display:flex;align-items:center;
+  justify-content:space-between}
+.modal-head h3{font-size:18px}
+.modal-head .x{background:none;border:none;color:#fff;font-size:22px;opacity:.8}
+.modal-body{padding:22px 24px}
+.tabs{display:flex;gap:6px;background:var(--navy-50);padding:5px;border-radius:10px;margin-bottom:18px}
+.tabs button{flex:1;border:none;background:none;padding:9px;border-radius:7px;font-weight:700;
+  font-size:14px;color:var(--muted)}
+.tabs button.active{background:#fff;color:var(--navy);box-shadow:var(--shadow)}
+.role-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+.role-pick .rp{border:1.5px solid var(--line);border-radius:10px;padding:10px 6px;text-align:center;
+  font-size:12.5px;font-weight:600;color:var(--muted);transition:.15s}
+.role-pick .rp .e{font-size:20px;display:block;margin-bottom:3px}
+.role-pick .rp.sel{border-color:var(--orange);background:var(--orange-50);color:var(--orange-600)}
+
+/* =========================================================================
+   APP SHELL (dashboards)
+   ========================================================================= */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:244px;background:var(--navy);color:#cdd9e8;display:flex;flex-direction:column;
+  position:fixed;top:0;bottom:0;left:0;z-index:40;transition:.25s}
+.sidebar .sb-brand{display:flex;align-items:center;gap:10px;padding:18px 18px;font-weight:800;
+  color:#fff;font-size:17px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sidebar .sb-brand .logo{width:32px;height:32px;font-size:17px}
+.sb-role{padding:12px 18px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;opacity:.6}
+.sb-nav{flex:1;overflow:auto;padding:4px 10px}
+.sb-nav a{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:9px;
+  font-size:14px;font-weight:500;margin-bottom:2px;transition:.12s}
+.sb-nav a .ic{font-size:17px;width:20px;text-align:center}
+.sb-nav a:hover{background:rgba(255,255,255,.07);color:#fff}
+.sb-nav a.active{background:var(--orange);color:#fff;font-weight:700}
+.sb-foot{padding:14px 16px;border-top:1px solid rgba(255,255,255,.08)}
+.sb-user{font-size:13px;color:#fff;margin-bottom:3px;font-weight:600}
+.sb-user small{display:block;color:#9fb3cc;font-weight:400;font-size:11.5px}
+
+.main{flex:1;margin-left:244px;min-width:0}
+.topbar{background:#fff;border-bottom:1px solid var(--line);padding:14px 26px;display:flex;
+  align-items:center;gap:14px;position:sticky;top:0;z-index:30}
+.topbar .mob-toggle{display:none;background:none;border:none;font-size:22px;color:var(--navy)}
+.topbar h1{font-size:20px;color:var(--navy);font-weight:800}
+.topbar .spacer{flex:1}
+.demo-pill{background:var(--amber);color:#fff;font-size:11.5px;font-weight:700;padding:5px 11px;
+  border-radius:999px;display:flex;align-items:center;gap:6px}
+.content{padding:24px 26px 50px}
+
+/* stat cards */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;
+  box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--orange)}
+.stat .lab{font-size:12.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.stat .val{font-size:30px;font-weight:800;color:var(--navy);margin-top:4px}
+.stat .ic{position:absolute;right:16px;top:16px;font-size:26px;opacity:.25}
+.stat.c-blue::before{background:var(--blue)} .stat.c-green::before{background:var(--green)}
+.stat.c-navy::before{background:var(--navy-600)} .stat.c-amber::before{background:var(--amber)}
+
+.panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  margin-bottom:22px;overflow:hidden}
+.panel-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;
+  gap:12px;flex-wrap:wrap}
+.panel-head h2{font-size:16px;color:var(--navy);font-weight:700}
+.panel-head .spacer{flex:1}
+.panel-body{padding:18px 20px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.toolbar input,.toolbar select{width:auto;min-width:160px}
+.search-box{position:relative}
+.search-box input{padding-left:34px}
+.search-box::before{content:"🔍";position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px}
+
+#map{height:420px;width:100%;border-radius:12px;z-index:1}
+.map-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--muted)}
+.map-legend .lg{display:flex;align-items:center;gap:6px}
+.map-legend .pin{width:14px;height:14px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:inline-block}
+
+/* progress / capacity bar */
+.capbar{height:12px;background:#eef2f7;border-radius:999px;overflow:hidden;margin:6px 0}
+.capbar > span{display:block;height:100%;background:linear-gradient(90deg,var(--green),#4ade80);transition:.4s}
+.capbar.warn > span{background:linear-gradient(90deg,var(--amber),#fbbf24)}
+.capbar.full > span{background:linear-gradient(90deg,var(--red),#f87171)}
+
+/* match score */
+.score{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;
+  border-radius:50%;font-weight:800;font-size:15px;color:#fff;background:conic-gradient(var(--green) var(--p),#e5e7eb 0)}
+.score i{width:38px;height:38px;border-radius:50%;background:#fff;display:grid;place-items:center;
+  font-style:normal;color:var(--navy);font-size:13px}
+
+/* timeline tracking */
+.timeline{list-style:none;position:relative;padding-left:8px}
+.timeline li{position:relative;padding:0 0 20px 28px}
+.timeline li::before{content:"";position:absolute;left:4px;top:3px;width:12px;height:12px;border-radius:50%;
+  background:#cbd5e1;border:2px solid #fff;box-shadow:0 0 0 1px #cbd5e1}
+.timeline li::after{content:"";position:absolute;left:9px;top:15px;bottom:0;width:2px;background:#e2e8f0}
+.timeline li:last-child::after{display:none}
+.timeline li.done::before{background:var(--green);box-shadow:0 0 0 1px var(--green)}
+.timeline li.active::before{background:var(--orange);box-shadow:0 0 0 3px var(--orange-50)}
+.timeline li h5{font-size:14px;color:var(--navy);font-weight:700}
+.timeline li small{color:var(--muted);font-size:12px}
+
+/* toast */
+#toasts{position:fixed;right:18px;bottom:18px;z-index:200;display:flex;flex-direction:column;gap:10px}
+.toast{background:var(--navy);color:#fff;padding:12px 16px;border-radius:10px;box-shadow:var(--shadow-lg);
+  font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:9px;animation:slideIn .25s;max-width:320px}
+.toast.ok{background:var(--green)} .toast.bad{background:var(--red)} .toast.info{background:var(--navy-600)}
+@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.mini-note{background:var(--navy-50);border:1px solid #d6e2f2;border-radius:10px;padding:12px 14px;
+  font-size:13px;color:var(--navy-700);margin-bottom:16px;display:flex;gap:10px;align-items:flex-start}
+.scrim{display:none;position:fixed;inset:0;background:rgba(7,22,43,.45);z-index:35}
+
+/* =========================================================================
+   RESPONSIVE
+   ========================================================================= */
+@media(max-width:900px){
+  .hero-inner{grid-template-columns:1fr} .hero h1{font-size:33px}
+  .grid3,.grid4,.steps{grid-template-columns:1fr 1fr} .problem-box{grid-template-columns:1fr}
+  .nav .links{display:none} .menu-btn{display:block}
+}
+@media(max-width:760px){
+  .sidebar{transform:translateX(-100%)} .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0} .topbar .mob-toggle{display:block} .scrim.show{display:block}
+  .row2{grid-template-columns:1fr} .grid3,.grid4,.steps{grid-template-columns:1fr}
+  .hero-stats{gap:18px} .section{padding:44px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     LANDING PAGE
+     ====================================================================== -->
+<div id="landing">
+  <nav class="nav">
+    <div class="brand"><span class="logo">🚚</span> ReturnTrip</div>
+    <div class="links">
+      <a href="#problem">Problem</a>
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#benefits">Benefits</a>
+    </div>
+    <div class="spacer"></div>
+    <div class="nav-cta">
+      <button class="btn btn-ghost btn-sm" onclick="openAuth('login')">Login</button>
+      <button class="btn btn-primary btn-sm" onclick="openAuth('register')">Get started</button>
+    </div>
+    <button class="menu-btn" onclick="document.querySelector('.links').classList.toggle('hidden')">☰</button>
+  </nav>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div>
+        <span class="badge b-orange" style="margin-bottom:16px">⚡ Smart logistics matching</span>
+        <h1>Never drive back <span class="hl">empty</span> again.</h1>
+        <p class="lead">ReturnTrip connects delivery vehicles on their return journey with customers
+          who need goods moved along the same route — cutting empty miles, carbon and cost.</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" onclick="openAuth('register')">Create free account →</button>
+          <button class="btn btn-ghost" onclick="loadDemoAndEnter()">Explore demo data</button>
+        </div>
+        <div class="hero-stats">
+          <div class="s"><b>40%</b><span>empty return trips</span></div>
+          <div class="s"><b>↓ cost</b><span>shared haulage</span></div>
+          <div class="s"><b>↓ CO₂</b><span>fewer dead miles</span></div>
+        </div>
+      </div>
+      <div class="hero-art">
+        <div style="font-size:13px;opacity:.75;margin-bottom:12px;font-weight:600">RETURN ROUTE · LIVE MATCH</div>
+        <div class="mini-route">
+          <div class="stop"><span class="dot" style="background:#f97316"></span>
+            <span class="ln">Vijayawada <small>Return start · 100 kg free</small></span></div>
+          <div class="conn"></div>
+          <div class="stop"><span class="dot" style="background:#38bdf8"></span>
+            <span class="ln">Guntur <small>+ Electronics 20kg · matched ✓</small></span></div>
+          <div class="conn"></div>
+          <div class="stop"><span class="dot" style="background:#4ade80"></span>
+            <span class="ln">Hyderabad <small>+ Clothing 15kg · matched ✓</small></span></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="section problem" id="problem">
+    <h2>The empty-return problem</h2>
+    <p class="sub">Up to a third of freight kilometres are driven with an empty vehicle. That is wasted
+      fuel, wasted driver time and avoidable emissions.</p>
+    <div class="problem-box">
+      <div class="bad">
+        <h4>Today — without ReturnTrip</h4>
+        <ul>
+          <li>Vehicle delivers Hyderabad → Vijayawada, then drives back empty</li>
+          <li>Customers pay full price for a dedicated vehicle</li>
+          <li>More trucks on the road for the same goods</li>
+          <li>No visibility of spare capacity on return legs</li>
+        </ul>
+      </div>
+      <div class="good">
+        <h4>With ReturnTrip</h4>
+        <ul>
+          <li>Return leg Vijayawada → Guntur → Hyderabad is published with free capacity</li>
+          <li>Nearby requests are matched automatically along the route</li>
+          <li>One vehicle carries several customers' goods</li>
+          <li>Lower cost for customers, extra income for drivers</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how" style="background:#fff">
+    <h2>How it works</h2>
+    <p class="sub">Four simple steps turn an empty return trip into shared, optimised haulage.</p>
+    <div class="steps">
+      <div class="step"><div class="n"></div><h4>Driver publishes return</h4>
+        <p>After the original delivery, the driver marks the return route and spare capacity.</p></div>
+      <div class="step"><div class="n"></div><h4>Customer posts request</h4>
+        <p>Pickup, drop-off, weight, dimensions and deadline for the goods to move.</p></div>
+      <div class="step"><div class="n"></div><h4>Algorithm matches</h4>
+        <p>Real route-proximity and capacity checks rank feasible, compatible deliveries.</p></div>
+      <div class="step"><div class="n"></div><h4>Book & track</h4>
+        <p>Driver accepts, capacity updates, and both sides track the delivery live.</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <h2>Platform features</h2>
+    <p class="sub">Everything a logistics marketplace needs — for admins, drivers and customers.</p>
+    <div class="grid3">
+      <div class="feature"><div class="ic">🧠</div><h3>Smart route matching</h3>
+        <p>Geographic route-proximity algorithm with capacity and deadline filtering — no random results.</p></div>
+      <div class="feature"><div class="ic">📦</div><h3>Multi-product allocation</h3>
+        <p>Pack several requests into one vehicle while respecting weight and remaining capacity.</p></div>
+      <div class="feature"><div class="ic">🗺️</div><h3>Interactive maps</h3>
+        <p>Leaflet + OpenStreetMap visualise routes, pickups and drop-offs with distinct markers.</p></div>
+      <div class="feature"><div class="ic">📊</div><h3>Role dashboards</h3>
+        <p>Separate, secure dashboards for admins, delivery companies and customers.</p></div>
+      <div class="feature"><div class="ic">🚦</div><h3>Live status tracking</h3>
+        <p>Seven delivery stages from request to delivered, visible to every stakeholder.</p></div>
+      <div class="feature"><div class="ic">🔐</div><h3>Accounts & roles</h3>
+        <p>Registration, login and role-based access control protect every page.</p></div>
+    </div>
+  </section>
+
+  <section class="section benefits" id="benefits">
+    <div style="max-width:1100px;margin:0 auto">
+      <h2 style="color:#fff">Benefits for everyone</h2>
+      <p class="sub" style="color:#9fb3cc">A win for drivers, customers and the planet.</p>
+      <div class="grid4">
+        <div class="b"><div class="ic">💰</div><h4>Lower cost</h4><p>Customers share a trip already being made.</p></div>
+        <div class="b"><div class="ic">📈</div><h4>Extra revenue</h4><p>Drivers earn on previously empty legs.</p></div>
+        <div class="b"><div class="ic">🌍</div><h4>Less CO₂</h4><p>Fewer dead miles and fewer vehicles.</p></div>
+        <div class="b"><div class="ic">⏱️</div><h4>Faster</h4><p>Goods ride a vehicle already heading that way.</p></div>
+      </div>
+      <div style="text-align:center;margin-top:36px">
+        <button class="btn btn-primary" onclick="openAuth('register')">Join ReturnTrip today</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="brand" style="justify-content:center;margin-bottom:8px;color:#fff">
+      <span class="logo" style="width:30px;height:30px;font-size:16px">🚚</span> ReturnTrip</div>
+    Smart Return-Trip Delivery Optimization System · Demo build · HTML + CSS + Vanilla JS + Leaflet
+  </footer>
+</div>
+
+<!-- ======================================================================
+     AUTH MODAL
+     ====================================================================== -->
+<div id="authOverlay" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="authTitle">Welcome back</h3>
+      <button class="x" onclick="closeAuth()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <button id="tabLogin" class="active" onclick="switchAuth('login')">Login</button>
+        <button id="tabReg" onclick="switchAuth('register')">Register</button>
+      </div>
+
+      <!-- LOGIN -->
+      <form id="loginForm" onsubmit="return doLogin(event)">
+        <div class="field"><label>Email</label>
+          <input type="email" id="lEmail" placeholder="you@example.com" autocomplete="username" />
+          <div class="err" id="lEmailErr"></div></div>
+        <div class="field"><label>Password</label>
+          <input type="password" id="lPass" placeholder="••••••••" autocomplete="current-password" />
+          <div class="err" id="lPassErr"></div></div>
+        <button class="btn btn-primary btn-block" type="submit">Login</button>
+        <p class="hint" style="text-align:center;margin-top:12px">
+          Demo logins — admin@demo.io / driver@demo.io / customer@demo.io · password <b>demo123</b></p>
+      </form>
+
+      <!-- REGISTER -->
+      <form id="regForm" class="hidden" onsubmit="return doRegister(event)">
+        <div class="field"><label>I am a…</label>
+          <div class="role-pick" id="rolePick">
+            <div class="rp sel" data-role="customer"><span class="e">🧑‍💼</span>Customer</div>
+            <div class="rp" data-role="driver"><span class="e">🚚</span>Driver</div>
+            <div class="rp" data-role="admin"><span class="e">🛡️</span>Admin</div>
+          </div></div>
+        <div class="field"><label>Full name</label>
+          <input id="rName" placeholder="Jane Doe" /><div class="err" id="rNameErr"></div></div>
+        <div class="field"><label>Email</label>
+          <input type="email" id="rEmail" placeholder="you@example.com" /><div class="err" id="rEmailErr"></div></div>
+        <div class="field"><label>Phone number</label>
+          <input type="tel" id="rPhone" placeholder="10-digit mobile" maxlength="10"
+            inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')" /><div class="err" id="rPhoneErr"></div></div>
+        <div class="field" id="rCompanyField"><label>Company name <span class="hint" style="display:inline">(drivers)</span></label>
+          <input id="rCompany" placeholder="Acme Logistics" /></div>
+        <div class="row2">
+          <div class="field"><label>Password</label>
+            <input type="password" id="rPass" placeholder="min 8, letters+numbers" /><div class="err" id="rPassErr"></div></div>
+          <div class="field"><label>Confirm</label>
+            <input type="password" id="rPass2" placeholder="repeat" /><div class="err" id="rPass2Err"></div></div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Create account</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================================
+     APP SHELL (dashboards) — built dynamically
+     ====================================================================== -->
+<div id="app" class="shell hidden">
+  <div class="scrim" id="scrim" onclick="toggleSidebar(false)"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand"><span class="logo">🚚</span> ReturnTrip</div>
+    <div class="sb-role" id="sbRole"></div>
+    <nav class="sb-nav" id="sbNav"></nav>
+    <div class="sb-foot">
+      <div class="sb-user" id="sbUser"></div>
+      <button class="btn btn-ghost btn-sm btn-block" onclick="logout()" style="margin-top:8px">↩ Logout</button>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <button class="mob-toggle" onclick="toggleSidebar(true)">☰</button>
+      <h1 id="pageTitle">Dashboard</h1>
+      <div class="spacer"></div>
+      <span class="demo-pill" title="Data is stored only in this browser">● DEMO MODE · localStorage</span>
+    </div>
+    <div class="content" id="view"></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* =========================================================================
+   ReturnTrip — single-file demo application
+   -------------------------------------------------------------------------
+   STORAGE NOTE (honest):
+   This build runs in DEMO MODE. All data (users, vehicles, trips, requests,
+   bookings, tracking) is stored in THIS browser's localStorage only. It is
+   NOT shared between different users, browsers or devices, and there is no
+   server. To make data shared & real, wire the DB layer below to Firebase
+   Firestore + Firebase Auth (see the README / comments at the bottom).
+   ========================================================================= */
+
+/* ---------- tiny helpers ---------- */
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const uid = (p='id')=>p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n=>Number(n).toLocaleString('en-IN');
+const nowISO = ()=>new Date().toISOString();
+const dateShort = d=>d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}):'—';
+const dtShort = d=>d?new Date(d).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+
+function toast(msg,type='info'){
+  const t=document.createElement('div');t.className='toast '+type;
+  t.innerHTML=(type==='ok'?'✓ ':type==='bad'?'⚠ ':'ℹ ')+esc(msg);
+  $('#toasts').appendChild(t);setTimeout(()=>{t.style.opacity=0;t.style.transform='translateX(40px)';
+    setTimeout(()=>t.remove(),250)},3200);
+}
+
+/* =========================================================================
+   DB LAYER — swap this object's internals for Firestore to go live.
+   Every read/write in the app goes through DB.* so the UI never changes.
+   ========================================================================= */
+const COLLECTIONS = ['users','vehicles','trips','deliveryRequests','bookings','trackingHistory'];
+const DB = {
+  key:'returntrip_db_v1',
+  _data:null,
+  load(){ if(this._data) return this._data;
+    try{ this._data = JSON.parse(localStorage.getItem(this.key)) || null; }catch(e){ this._data=null; }
+    if(!this._data){ this._data={}; COLLECTIONS.forEach(c=>this._data[c]=[]); }
+    COLLECTIONS.forEach(c=>{ if(!this._data[c]) this._data[c]=[]; });
+    return this._data; },
+  save(){ localStorage.setItem(this.key, JSON.stringify(this._data)); },
+  all(col){ return this.load()[col] || []; },
+  find(col,fn){ return this.all(col).filter(fn); },
+  get(col,id){ return this.all(col).find(x=>x.id===id); },
+  insert(col,obj){ obj.id=obj.id||uid(col); obj.createdAt=obj.createdAt||nowISO();
+    this.load()[col].push(obj); this.save(); return obj; },
+  update(col,id,patch){ const o=this.get(col,id); if(o){Object.assign(o,patch);this.save();} return o; },
+  remove(col,id){ this._data[col]=this.all(col).filter(x=>x.id!==id); this.save(); },
+  reset(){ localStorage.removeItem(this.key); this._data=null; this.load(); }
+};
+
+/* =========================================================================
+   SESSION / AUTH (demo — passwords lightly hashed, NOT secure)
+   ========================================================================= */
+const SKEY='returntrip_session';
+/* Strong password: at least 8 chars, including a letter and a number. */
+function isStrongPassword(p){ return typeof p==='string' && p.length>=8 && /[A-Za-z]/.test(p) && /[0-9]/.test(p); }
+const Auth = {
+  hash(p){ let h=5381; for(let i=0;i<p.length;i++) h=((h<<5)+h)+p.charCodeAt(i); return 'h'+(h>>>0); },
+  current(){ try{ const id=localStorage.getItem(SKEY); return id?DB.get('users',id):null; }catch(e){ return null; } },
+  login(email,pass){
+    const u=DB.find('users',x=>x.email.toLowerCase()===email.toLowerCase())[0];
+    if(!u) return {ok:false,msg:'No account with that email'};
+    if(u.pass!==this.hash(pass)) return {ok:false,msg:'Incorrect password'};
+    localStorage.setItem(SKEY,u.id); return {ok:true,user:u};
+  },
+  register({name,email,phone,pass,role,company}){
+    if(DB.find('users',x=>x.email.toLowerCase()===email.toLowerCase())[0])
+      return {ok:false,msg:'Email already registered'};
+    const u=DB.insert('users',{name,email,phone:phone||'',pass:this.hash(pass),role,company:company||''});
+    localStorage.setItem(SKEY,u.id); return {ok:true,user:u};
+  },
+  logout(){ localStorage.removeItem(SKEY); }
+};
+
+/* =========================================================================
+   REFERENCE DATA — city coordinates (so matching uses real geography
+   without needing an online geocoder). Users pick from these.
+   ========================================================================= */
+const CITIES = {
+  'Hyderabad':[17.3850,78.4867],'Vijayawada':[16.5062,80.6480],'Guntur':[16.3067,80.4365],
+  'Nalgonda':[17.0575,79.2690],'Suryapet':[17.1353,79.6238],'Khammam':[17.2473,80.1514],
+  'Warangal':[17.9784,79.5941],'Tenali':[16.2430,80.6400],'Eluru':[16.7107,81.0952],
+  'Rajahmundry':[16.9891,81.7837],'Visakhapatnam':[17.6868,83.2185],'Nellore':[14.4426,79.9865],
+  'Tirupati':[13.6288,79.4192],'Kurnool':[15.8281,78.0373],'Kadapa':[14.4674,78.8241],
+  'Anantapur':[14.6819,77.6006],'Ongole':[15.5057,80.0499],'Chennai':[13.0827,80.2707],
+  'Bengaluru':[12.9716,77.5946],'Vizianagaram':[18.1067,83.3956]
+};
+const CITY_NAMES = Object.keys(CITIES);
+
+/* =========================================================================
+   GEOMETRY — haversine + point-to-segment distance (km)
+   Used by the matching algorithm to test "is this pickup/drop near the
+   return route?" and to compute extra distance.
+   ========================================================================= */
+const R_KM=6371;
+function haversine(a,b){
+  const toR=d=>d*Math.PI/180;
+  const dLat=toR(b[0]-a[0]), dLng=toR(b[1]-a[1]);
+  const la1=toR(a[0]), la2=toR(b[0]);
+  const h=Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
+  return 2*R_KM*Math.asin(Math.sqrt(h));
+}
+/* distance (km) from point P to the great-circle-ish segment A-B,
+   approximated on a local equirectangular projection (fine for intercity). */
+function pointToSegmentKm(P,A,B){
+  const latRef=(A[0]+B[0])/2*Math.PI/180;
+  const proj=pt=>[pt[1]*Math.cos(latRef)*111.32, pt[0]*110.57]; // [x,y] km
+  const p=proj(P),a=proj(A),b=proj(B);
+  const abx=b[0]-a[0], aby=b[1]-a[1];
+  const apx=p[0]-a[0], apy=p[1]-a[1];
+  const len2=abx*abx+aby*aby || 1e-9;
+  let t=(apx*abx+apy*aby)/len2; t=Math.max(0,Math.min(1,t));
+  const cx=a[0]+t*abx, cy=a[1]+t*aby;
+  return Math.hypot(p[0]-cx,p[1]-cy);
+}
+/* min distance from a point to a multi-stop route (array of [lat,lng]) */
+function pointToRouteKm(P,route){
+  let min=Infinity;
+  for(let i=0;i<route.length-1;i++) min=Math.min(min,pointToSegmentKm(P,route[i],route[i+1]));
+  return min;
+}
+/* how far along the route (0..1) the nearest point to P sits — to enforce
+   that pickup comes before drop-off in travel direction. */
+function routeProgress(P,route){
+  // cumulative length of route
+  let cum=[0];
+  for(let i=1;i<route.length;i++) cum[i]=cum[i-1]+haversine(route[i-1],route[i]);
+  const total=cum[cum.length-1]||1;
+  let best={d:Infinity,s:0};
+  for(let i=0;i<route.length-1;i++){
+    const A=route[i],B=route[i+1];
+    const latRef=(A[0]+B[0])/2*Math.PI/180;
+    const proj=pt=>[pt[1]*Math.cos(latRef)*111.32, pt[0]*110.57];
+    const p=proj(P),a=proj(A),b=proj(B);
+    const abx=b[0]-a[0],aby=b[1]-a[1],apx=p[0]-a[0],apy=p[1]-a[1];
+    const len2=abx*abx+aby*aby||1e-9; let t=(apx*abx+apy*aby)/len2;t=Math.max(0,Math.min(1,t));
+    const cx=a[0]+t*abx,cy=a[1]+t*aby; const d=Math.hypot(p[0]-cx,p[1]-cy);
+    if(d<best.d){ const segLen=haversine(A,B); best={d,s:(cum[i]+t*segLen)/total}; }
+  }
+  return best.s; // 0 at route start, 1 at route end
+}
+const coordOf = name => CITIES[name] || null;
+
+/* =========================================================================
+   THE MATCHING ALGORITHM  (spec section 4)
+   For a given return trip, score every OPEN delivery request:
+     1. pickup & drop must be within CORRIDOR_KM of the route
+     2. pickup must come before drop along the travel direction
+     3. request weight must fit remaining capacity
+     4. deadline must be after the trip's expected arrival
+     5. score = weighted blend of corridor closeness, detour, deadline slack
+   Returns a ranked, filtered list with reasons for rejection.
+   ========================================================================= */
+const CORRIDOR_KM = 45; // "near the route" threshold
+
+function expectedArrival(trip){
+  // naive ETA: route distance / 45 km/h from the trip's activation time
+  const route=tripRoute(trip);
+  let dist=0; for(let i=1;i<route.length;i++) dist+=haversine(route[i-1],route[i]);
+  const hrs=dist/45; const base=trip.returnActivatedAt?new Date(trip.returnActivatedAt):new Date();
+  return new Date(base.getTime()+hrs*3600*1000);
+}
+function tripRoute(trip){
+  // trip.returnStops is an ordered array of city names
+  return (trip.returnStops||[]).map(coordOf).filter(Boolean);
+}
+function allocatedWeight(trip){
+  return DB.find('bookings',b=>b.tripId===trip.id && b.status!=='Cancelled')
+           .reduce((s,b)=>s+(b.weight||0),0);
+}
+function remainingCapacity(trip){ return Math.max(0,(trip.returnCapacity||0)-allocatedWeight(trip)); }
+
+function matchRequestsForTrip(trip, {includeRejected=true}={}){
+  const route=tripRoute(trip);
+  if(route.length<2) return [];
+  const remaining=remainingCapacity(trip);
+  const eta=expectedArrival(trip);
+  const open=DB.find('deliveryRequests',r=>r.status==='Request Submitted' || r.status==='Match Found');
+
+  const results=[];
+  for(const req of open){
+    const P=coordOf(req.pickup), D=coordOf(req.destination);
+    if(!P||!D){ continue; }
+    const reasons=[];
+    const dPick=pointToRouteKm(P,route), dDrop=pointToRouteKm(D,route);
+    const sPick=routeProgress(P,route), sDrop=routeProgress(D,route);
+
+    if(dPick>CORRIDOR_KM) reasons.push(`Pickup ${req.pickup} is ${dPick.toFixed(0)} km off route`);
+    if(dDrop>CORRIDOR_KM) reasons.push(`Drop ${req.destination} is ${dDrop.toFixed(0)} km off route`);
+    if(sPick>sDrop+0.02)  reasons.push('Wrong direction (drop before pickup on this return)');
+    if(req.weight>remaining) reasons.push(`Needs ${req.weight} kg, only ${remaining} kg free`);
+    if(req.deadline && new Date(req.deadline) < eta)
+      reasons.push(`Deadline ${dateShort(req.deadline)} is before ETA ${dateShort(eta)}`);
+
+    const feasible = reasons.length===0;
+    // ----- score (0..100), only meaningful when feasible -----
+    const corridorScore = Math.max(0, 1-(dPick+dDrop)/(2*CORRIDOR_KM));       // closeness to route
+    const detourKm = extraDistanceKm(route,P,D);
+    const detourScore = Math.max(0, 1-detourKm/120);                          // less detour = better
+    const slackScore = req.deadline
+      ? Math.max(0, Math.min(1,(new Date(req.deadline)-eta)/(48*3600*1000)))  // deadline comfort
+      : 0.6;
+    const fillScore = Math.min(1, req.weight/Math.max(1,trip.returnCapacity)); // rewards using capacity
+    const score = Math.round(100*(0.42*corridorScore + 0.30*detourScore + 0.18*slackScore + 0.10*fillScore));
+
+    const row={ req, trip, feasible, reasons, score, detourKm,
+                dPick:+dPick.toFixed(1), dDrop:+dDrop.toFixed(1) };
+    if(feasible || includeRejected) results.push(row);
+  }
+  // feasible first, then by score desc
+  results.sort((a,b)=> (b.feasible-a.feasible) || (b.score-a.score));
+  return results;
+}
+/* extra distance added by detouring to pick up P then drop D, vs. the
+   straight nearest-points on the route. Rough but real (uses OSRM if online,
+   falls back to geometry). Synchronous geometry version here: */
+function extraDistanceKm(route,P,D){
+  // insertion cost: nearest segment detour for pickup + drop
+  return +(pointToRouteKm(P,route)*2 + pointToRouteKm(D,route)*2).toFixed(1);
+}
+
+/* OPTIONAL: real road distance via OSRM, with graceful fallback.
+   Used lazily when a driver opens the detailed match (so the UI still
+   works fully offline). */
+async function osrmDistanceKm(a,b){
+  try{
+    const url=`https://router.project-osrm.org/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=false`;
+    const ctrl=new AbortController(); const to=setTimeout(()=>ctrl.abort(),4000);
+    const res=await fetch(url,{signal:ctrl.signal}); clearTimeout(to);
+    if(!res.ok) throw new Error('OSRM '+res.status);
+    const j=await res.json();
+    if(j.routes&&j.routes[0]) return {ok:true,km:j.routes[0].distance/1000};
+    throw new Error('no route');
+  }catch(e){ return {ok:false,km:haversine(a,b),error:e.message}; }
+}
+
+/* =========================================================================
+   SEED DEMO DATA (clearly separated from real user data)
+   ========================================================================= */
+function seedDemo(force){
+  if(!force && DB.find('users',u=>u.demo)[0]) return;
+  if(force) DB.reset();
+  const mk=(name,email,role,company,phone)=>DB.insert('users',
+    {name,email,role,company:company||'',phone:phone||'',pass:Auth.hash('demo123'),demo:true});
+
+  const admin=mk('Platform Admin','admin@demo.io','admin','','9000000001');
+  const d1=mk('Ravi Kumar','driver@demo.io','driver','SwiftHaul Logistics','9876500011');
+  const d2=mk('Anil Reddy','driver2@demo.io','driver','GreenMile Transport','9876500022');
+  const c1=mk('Priya Sharma','customer@demo.io','customer','','9123400011');
+  const c2=mk('Meena Rao','customer2@demo.io','customer','','9123400022');
+  const c3=mk('Suresh Babu','customer3@demo.io','customer','','9123400033');
+
+  const v1=DB.insert('vehicles',{ownerId:d1.id,company:'SwiftHaul Logistics',type:'Container Truck',
+    regNo:'TS09UA4521',capacity:100,demo:true});
+  const v2=DB.insert('vehicles',{ownerId:d2.id,company:'GreenMile Transport',type:'Mini Truck',
+    regNo:'AP16TC8890',capacity:60,demo:true});
+
+  // Original trip Hyderabad->Vijayawada, return activated: Vijayawada->Guntur->Hyderabad
+  const t1=DB.insert('trips',{driverId:d1.id,vehicleId:v1.id,origin:'Hyderabad',destination:'Vijayawada',
+    originalStatus:'Completed',returnActive:true,returnStops:['Vijayawada','Guntur','Nalgonda','Hyderabad'],
+    returnCapacity:100,returnActivatedAt:nowISO(),demo:true});
+  const t2=DB.insert('trips',{driverId:d2.id,vehicleId:v2.id,origin:'Chennai',destination:'Nellore',
+    originalStatus:'Completed',returnActive:true,returnStops:['Nellore','Ongole','Guntur','Vijayawada'],
+    returnCapacity:60,returnActivatedAt:nowISO(),demo:true});
+  const t3=DB.insert('trips',{driverId:d1.id,vehicleId:v1.id,origin:'Hyderabad',destination:'Warangal',
+    originalStatus:'In Progress',returnActive:false,returnStops:[],returnCapacity:0,demo:true});
+
+  const dl=(n,days)=>new Date(Date.now()+days*864e5).toISOString();
+  const mkReq=(o)=>DB.insert('deliveryRequests',Object.assign(
+    {status:'Request Submitted',demo:true},o));
+  mkReq({customerId:c1.id,product:'Electronics parts',category:'Electronics',weight:20,
+    dims:'60×40×40 cm',handling:'Fragile',pickup:'Vijayawada',destination:'Guntur',deadline:dl('',3)});
+  mkReq({customerId:c2.id,product:'Cotton clothing bales',category:'Clothing',weight:15,
+    dims:'80×60×50 cm',handling:'Keep dry',pickup:'Guntur',destination:'Hyderabad',deadline:dl('',4)});
+  mkReq({customerId:c3.id,product:'Packaged groceries',category:'Groceries',weight:25,
+    dims:'50×50×50 cm',handling:'Normal',pickup:'Vijayawada',destination:'Hyderabad',deadline:dl('',5)});
+  mkReq({customerId:c1.id,product:'Ceramic tiles',category:'Construction',weight:40,
+    dims:'100×100×20 cm',handling:'Heavy/Fragile',pickup:'Nellore',destination:'Vijayawada',deadline:dl('',6)});
+  mkReq({customerId:c2.id,product:'Books carton',category:'Other',weight:12,
+    dims:'40×30×30 cm',handling:'Normal',pickup:'Tirupati',destination:'Bengaluru',deadline:dl('',2)});
+}
+
+/* =========================================================================
+   LANDING / AUTH UI WIRING
+   ========================================================================= */
+let authRole='customer';
+function openAuth(mode){ $('#authOverlay').classList.remove('hidden'); switchAuth(mode); }
+function closeAuth(){ $('#authOverlay').classList.add('hidden'); clearErrors(); }
+function switchAuth(mode){
+  const L=mode==='login';
+  $('#tabLogin').classList.toggle('active',L); $('#tabReg').classList.toggle('active',!L);
+  $('#loginForm').classList.toggle('hidden',!L); $('#regForm').classList.toggle('hidden',L);
+  $('#authTitle').textContent=L?'Welcome back':'Create your account'; clearErrors();
+}
+function clearErrors(){ $$('.err').forEach(e=>e.textContent=''); }
+$$('#rolePick .rp').forEach(rp=>rp.onclick=()=>{
+  $$('#rolePick .rp').forEach(x=>x.classList.remove('sel')); rp.classList.add('sel');
+  authRole=rp.dataset.role;
+  $('#rCompanyField').style.display = authRole==='driver'?'block':'none';
+});
+$('#rCompanyField').style.display='none';
+
+function doLogin(e){
+  e.preventDefault(); clearErrors();
+  const email=$('#lEmail').value.trim(), pass=$('#lPass').value;
+  let bad=false;
+  if(!/^\S+@\S+\.\S+$/.test(email)){ $('#lEmailErr').textContent='Enter a valid email'; bad=true; }
+  if(!pass){ $('#lPassErr').textContent='Enter your password'; bad=true; }
+  if(bad) return false;
+  const r=Auth.login(email,pass);
+  if(!r.ok){ $('#lPassErr').textContent=r.msg; return false; }
+  closeAuth(); enterApp(); toast('Welcome back, '+r.user.name,'ok'); return false;
+}
+function doRegister(e){
+  e.preventDefault(); clearErrors();
+  const name=$('#rName').value.trim(), email=$('#rEmail').value.trim(), phone=$('#rPhone').value.trim(),
+        pass=$('#rPass').value, pass2=$('#rPass2').value, company=$('#rCompany').value.trim();
+  let bad=false;
+  if(name.length<2){ $('#rNameErr').textContent='Enter your name'; bad=true; }
+  if(!/^\S+@\S+\.\S+$/.test(email)){ $('#rEmailErr').textContent='Enter a valid email'; bad=true; }
+  if(!/^[6-9][0-9]{9}$/.test(phone)){ $('#rPhoneErr').textContent='Enter a valid 10-digit mobile number'; bad=true; }
+  if(!isStrongPassword(pass)){ $('#rPassErr').textContent='Min 8 chars, with letters & numbers'; bad=true; }
+  if(pass!==pass2){ $('#rPass2Err').textContent='Passwords do not match'; bad=true; }
+  if(authRole==='driver' && !company){ toast('Company name helps, using your name','info'); }
+  if(bad) return false;
+  const r=Auth.register({name,email,phone,pass,role:authRole,company});
+  if(!r.ok){ $('#rEmailErr').textContent=r.msg; return false; }
+  closeAuth(); enterApp(); toast('Account created — welcome!','ok'); return false;
+}
+function loadDemoAndEnter(){
+  seedDemo(false);
+  const r=Auth.login('driver@demo.io','demo123');
+  if(r.ok){ enterApp(); toast('Exploring as demo driver','info'); }
+}
+
+/* =========================================================================
+   APP SHELL / ROUTER
+   ========================================================================= */
+const NAV = {
+  admin:[
+    ['overview','📊','Overview'],['users','👥','Users'],['vehicles','🚚','Vehicles'],
+    ['trips','🛣️','Trips'],['requests','📦','Requests'],['bookings','🧾','Bookings'],
+    ['map','🗺️','Live map']],
+  driver:[
+    ['overview','📊','Overview'],['vehicles','🚚','My vehicles'],['trips','🛣️','My trips'],
+    ['matching','🧠','Find matches'],['bookings','🧾','Accepted jobs'],['map','🗺️','Route map']],
+  customer:[
+    ['overview','📊','Overview'],['newrequest','➕','New request'],['requests','📦','My requests'],
+    ['bookings','🧾','My bookings'],['tracking','🚦','Track'],['map','🗺️','Map']]
+};
+let CURRENT=null, PAGE='overview', mapObj=null;
+
+function enterApp(){
+  CURRENT=Auth.current();
+  if(!CURRENT){ showLanding(); return; }
+  $('#landing').classList.add('hidden');
+  $('#authOverlay').classList.add('hidden');
+  $('#app').classList.remove('hidden');
+  $('#sbRole').textContent=CURRENT.role+' panel';
+  $('#sbUser').innerHTML=esc(CURRENT.name)+'<small>'+esc(CURRENT.email)+'</small>';
+  buildNav(); go('overview');
+}
+function showLanding(){
+  $('#app').classList.add('hidden'); $('#landing').classList.remove('hidden');
+}
+function buildNav(){
+  const nav=$('#sbNav'); nav.innerHTML='';
+  (NAV[CURRENT.role]||[]).forEach(([key,ic,label])=>{
+    const a=document.createElement('a'); a.href='#'+key; a.dataset.page=key;
+    a.innerHTML=`<span class="ic">${ic}</span>${label}`;
+    a.onclick=ev=>{ev.preventDefault();go(key);toggleSidebar(false);};
+    nav.appendChild(a);
+  });
+}
+function go(page){
+  // auth guard — protected pages require a logged in user of right role
+  if(!Auth.current()){ showLanding(); return; }
+  PAGE=page;
+  $$('#sbNav a').forEach(a=>a.classList.toggle('active',a.dataset.page===page));
+  const item=(NAV[CURRENT.role]||[]).find(n=>n[0]===page);
+  $('#pageTitle').textContent=item?item[2]:'Dashboard';
+  if(mapObj){ mapObj.remove(); mapObj=null; }
+  const V=$('#view');
+  const R={
+    overview:renderOverview, users:renderUsers, vehicles:renderVehicles, trips:renderTrips,
+    requests:renderRequests, bookings:renderBookings, map:renderMap, matching:renderMatching,
+    newrequest:renderNewRequest, tracking:renderTracking
+  };
+  (R[page]||renderOverview)(V);
+  window.scrollTo(0,0);
+}
+function logout(){ Auth.logout(); CURRENT=null; showLanding(); toast('Logged out','info'); }
+function toggleSidebar(open){ $('#sidebar').classList.toggle('open',open); $('#scrim').classList.toggle('show',open); }
+
+/* =========================================================================
+   SHARED RENDER HELPERS
+   ========================================================================= */
+const STATUS_FLOW=['Request Submitted','Match Found','Booking Confirmed','Product Picked Up','In Transit','Delivered'];
+function statusBadge(s){
+  const map={'Request Submitted':'b-gray','Match Found':'b-blue','Booking Confirmed':'b-navy',
+    'Product Picked Up':'b-orange','In Transit':'b-orange','Delivered':'b-green','Cancelled':'b-red'};
+  return `<span class="badge ${map[s]||'b-gray'}">${esc(s)}</span>`;
+}
+function userName(id){ const u=DB.get('users',id); return u?u.name:'—'; }
+function userPhone(id){ const u=DB.get('users',id); return u&&u.phone?u.phone:''; }
+function phoneLink(id){ const p=userPhone(id);
+  return p?`<a href="tel:${esc(p)}" style="color:var(--navy-600);font-weight:600">📞 ${esc(p)}</a>`:'<small style="color:var(--muted)">no phone</small>'; }
+function vehicleLabel(id){ const v=DB.get('vehicles',id); return v?`${v.type} (${v.regNo})`:'—'; }
+function statCard(lab,val,ic,cls=''){ return `<div class="stat ${cls}"><div class="ic">${ic}</div>
+  <div class="lab">${lab}</div><div class="val">${val}</div></div>`; }
+function panel(title,bodyHTML,toolsHTML=''){ return `<div class="panel"><div class="panel-head">
+  <h2>${title}</h2><div class="spacer"></div>${toolsHTML}</div><div class="panel-body">${bodyHTML}</div></div>`; }
+function tableWrap(head,rows){ return `<div class="table-wrap"><table><thead><tr>${head}</tr></thead>
+  <tbody>${rows||`<tr><td colspan="20"><div class="empty">Nothing here yet.</div></td></tr>`}</tbody></table></div>`; }
+
+/* ---------- OVERVIEW (role specific) ---------- */
+function renderOverview(V){
+  if(CURRENT.role==='admin') return renderAdminOverview(V);
+  if(CURRENT.role==='driver') return renderDriverOverview(V);
+  return renderCustomerOverview(V);
+}
+function renderAdminOverview(V){
+  const users=DB.all('users'), vehicles=DB.all('vehicles'), reqs=DB.all('deliveryRequests');
+  const trips=DB.all('trips'), bookings=DB.all('bookings');
+  const activeReturns=trips.filter(t=>t.returnActive).length;
+  const completed=bookings.filter(b=>b.status==='Delivered').length;
+  const stats=
+    statCard('Registered users',fmt(users.length),'👥','c-navy')+
+    statCard('Vehicles',fmt(vehicles.length),'🚚','c-blue')+
+    statCard('Delivery requests',fmt(reqs.length),'📦','c-amber')+
+    statCard('Active return trips',fmt(activeReturns),'🛣️','c-green')+
+    statCard('Completed deliveries',fmt(completed),'✅','c-green')+
+    statCard('Total bookings',fmt(bookings.length),'🧾','c-navy');
+  const byRole=['admin','driver','customer'].map(r=>`${r}: <b>${users.filter(u=>u.role===r).length}</b>`).join(' · ');
+  const recent=bookings.slice(-6).reverse().map(b=>{
+    const req=DB.get('deliveryRequests',b.requestId);
+    return `<tr><td>${esc(req?req.product:'—')}</td><td>${esc(userName(b.customerId))}</td>
+      <td>${esc(userName(b.driverId))}</td><td>${b.weight} kg</td><td>${statusBadge(b.status)}</td>
+      <td>${dtShort(b.createdAt)}</td></tr>`;}).join('');
+  V.innerHTML=`<div class="stats">${stats}</div>
+    <div class="mini-note">🛡️ <div>Admin view — monitor platform activity. User breakdown — ${byRole}.</div></div>
+    ${panel('Recent bookings', tableWrap(
+      '<th>Product</th><th>Customer</th><th>Driver</th><th>Weight</th><th>Status</th><th>When</th>', recent))}`;
+}
+function renderDriverOverview(V){
+  const myV=DB.find('vehicles',v=>v.ownerId===CURRENT.id);
+  const myT=DB.find('trips',t=>t.driverId===CURRENT.id);
+  const activeReturns=myT.filter(t=>t.returnActive);
+  const myB=DB.find('bookings',b=>b.driverId===CURRENT.id);
+  const pendingMatches=activeReturns.reduce((s,t)=>s+matchRequestsForTrip(t,{includeRejected:false}).length,0);
+  const stats=
+    statCard('My vehicles',fmt(myV.length),'🚚','c-blue')+
+    statCard('My trips',fmt(myT.length),'🛣️','c-navy')+
+    statCard('Active returns',fmt(activeReturns.length),'♻️','c-green')+
+    statCard('Matchable requests',fmt(pendingMatches),'🧠','c-amber')+
+    statCard('Accepted jobs',fmt(myB.filter(b=>b.status!=='Cancelled').length),'🧾','c-navy')+
+    statCard('Delivered',fmt(myB.filter(b=>b.status==='Delivered').length),'✅','c-green');
+  let returnsHTML;
+  if(!activeReturns.length){
+    returnsHTML=`<div class="empty">No active return trips. Add a vehicle, create a trip, mark it
+      completed, then activate the return leg to start matching.</div>`;
+  }else{
+    returnsHTML=activeReturns.map(t=>{
+      const rem=remainingCapacity(t), used=allocatedWeight(t), pct=Math.round(used/t.returnCapacity*100)||0;
+      const cls=pct>=100?'full':pct>=75?'warn':'';
+      return `<div style="padding:12px 0;border-bottom:1px solid var(--line)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <b>${esc((t.returnStops||[]).join(' → '))}</b>
+          <button class="btn btn-primary btn-sm" onclick="go('matching')">Find matches →</button></div>
+        <div class="capbar ${cls}"><span style="width:${Math.min(100,pct)}%"></span></div>
+        <small style="color:var(--muted)">${used} / ${t.returnCapacity} kg used · ${rem} kg free</small>
+      </div>`;}).join('');
+  }
+  V.innerHTML=`<div class="stats">${stats}</div>${panel('Active return trips & capacity',returnsHTML)}`;
+}
+function renderCustomerOverview(V){
+  const myR=DB.find('deliveryRequests',r=>r.customerId===CURRENT.id);
+  const myB=DB.find('bookings',b=>b.customerId===CURRENT.id);
+  const stats=
+    statCard('My requests',fmt(myR.length),'📦','c-navy')+
+    statCard('Awaiting match',fmt(myR.filter(r=>r.status==='Request Submitted').length),'⏳','c-amber')+
+    statCard('Booked',fmt(myB.filter(b=>b.status!=='Cancelled'&&b.status!=='Delivered').length),'🧾','c-blue')+
+    statCard('Delivered',fmt(myB.filter(b=>b.status==='Delivered').length),'✅','c-green');
+  const rows=myR.slice().reverse().map(r=>`<tr><td>${esc(r.product)}</td>
+    <td>${esc(r.pickup)} → ${esc(r.destination)}</td><td>${r.weight} kg</td>
+    <td>${dateShort(r.deadline)}</td><td>${statusBadge(r.status)}</td></tr>`).join('');
+  V.innerHTML=`<div class="stats">${stats}</div>
+    <div class="mini-note">💡 <div>Create a delivery request, then open <b>My requests</b> to see available
+      returning vehicles and book a compatible match.</div></div>
+    ${panel('My delivery requests',tableWrap(
+      '<th>Product</th><th>Route</th><th>Weight</th><th>Deadline</th><th>Status</th>',rows),
+      `<button class="btn btn-primary btn-sm" onclick="go('newrequest')">+ New request</button>`)}`;
+}
+
+/* ---------- USERS (admin) ---------- */
+function renderUsers(V){
+  const render=(q='',role='')=>{
+    let list=DB.all('users');
+    if(role) list=list.filter(u=>u.role===role);
+    if(q) list=list.filter(u=>(u.name+u.email+(u.company||'')).toLowerCase().includes(q.toLowerCase()));
+    return list.map(u=>`<tr><td><b>${esc(u.name)}</b></td><td>${esc(u.email)}</td>
+      <td>${esc(u.phone||'—')}</td>
+      <td><span class="badge b-navy">${esc(u.role)}</span></td><td>${esc(u.company||'—')}</td>
+      <td>${u.demo?'<span class="badge b-amber b-orange">demo</span>':'<span class="badge b-green">live</span>'}</td>
+      <td>${CURRENT.id===u.id?'<span class="badge b-gray">you</span>':
+        `<button class="btn btn-danger btn-sm" onclick="adminDeleteUser('${u.id}')">Remove</button>`}</td></tr>`).join('');
+  };
+  V.innerHTML=panel('Manage customers & drivers',
+    `<div id="userRows">${tableWrap('<th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Company</th><th>Source</th><th></th>',render())}</div>`,
+    `<div class="toolbar">
+       <div class="search-box"><input id="uSearch" placeholder="Search users…"></div>
+       <select id="uRole"><option value="">All roles</option><option>admin</option><option>driver</option><option>customer</option></select>
+     </div>`);
+  const upd=()=>$('#userRows').innerHTML=tableWrap(
+    '<th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Company</th><th>Source</th><th></th>',
+    render($('#uSearch').value,$('#uRole').value));
+  $('#uSearch').oninput=upd; $('#uRole').onchange=upd;
+}
+function adminDeleteUser(id){
+  if(!confirm('Remove this user and their data? (demo only)')) return;
+  DB.remove('users',id);
+  DB.find('vehicles',v=>v.ownerId===id).forEach(v=>DB.remove('vehicles',v.id));
+  DB.find('deliveryRequests',r=>r.customerId===id).forEach(r=>DB.remove('deliveryRequests',r.id));
+  toast('User removed','ok'); go('users');
+}
+
+/* ---------- VEHICLES ---------- */
+function renderVehicles(V){
+  const isAdmin=CURRENT.role==='admin';
+  const list=isAdmin?DB.all('vehicles'):DB.find('vehicles',v=>v.ownerId===CURRENT.id);
+  const rows=list.map(v=>`<tr><td><b>${esc(v.type)}</b></td><td>${esc(v.regNo)}</td>
+    <td>${esc(v.company||userName(v.ownerId))}</td><td>${v.capacity} kg</td>
+    ${isAdmin?`<td>${esc(userName(v.ownerId))}</td>`:''}
+    <td>${CURRENT.role==='driver'?`<button class="btn btn-danger btn-sm" onclick="delVehicle('${v.id}')">Delete</button>`:'—'}</td>
+    </tr>`).join('');
+  const head='<th>Type</th><th>Reg. no.</th><th>Company</th><th>Capacity</th>'+(isAdmin?'<th>Owner</th>':'')+'<th></th>';
+  let form='';
+  if(CURRENT.role==='driver'){
+    form=panel('Register a vehicle',`
+      <form onsubmit="return addVehicle(event)">
+        <div class="row2">
+          <div class="field"><label>Vehicle type</label>
+            <select id="vType"><option>Mini Truck</option><option>Container Truck</option>
+              <option>Pickup Van</option><option>Refrigerated Truck</option><option>Tempo</option><option>Trailer</option></select></div>
+          <div class="field"><label>Registration number</label>
+            <input id="vReg" placeholder="TS09UA4521" style="text-transform:uppercase"><div class="err" id="vRegErr"></div></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Company name</label><input id="vCompany" value="${esc(CURRENT.company||'')}" placeholder="Your company"></div>
+          <div class="field"><label>Max capacity (kg)</label><input id="vCap" type="number" min="1" placeholder="100"><div class="err" id="vCapErr"></div></div>
+        </div>
+        <button class="btn btn-primary">+ Add vehicle</button>
+      </form>`);
+  }
+  V.innerHTML=form+panel(isAdmin?'All vehicles':'My vehicles',tableWrap(head,rows));
+}
+function addVehicle(e){
+  e.preventDefault();
+  const type=$('#vType').value, regNo=$('#vReg').value.trim().toUpperCase(),
+        company=$('#vCompany').value.trim(), capacity=+$('#vCap').value;
+  $('#vRegErr').textContent=''; $('#vCapErr').textContent='';
+  if(!/^[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{3,4}$/.test(regNo.replace(/\s/g,''))){
+    $('#vRegErr').textContent='Use a valid plate e.g. TS09UA4521'; return false; }
+  if(!(capacity>0)){ $('#vCapErr').textContent='Enter capacity in kg'; return false; }
+  DB.insert('vehicles',{ownerId:CURRENT.id,type,regNo,company,capacity});
+  toast('Vehicle registered','ok'); go('vehicles'); return false;
+}
+function delVehicle(id){ if(!confirm('Delete this vehicle?'))return; DB.remove('vehicles',id); toast('Deleted','ok'); go('vehicles'); }
+
+/* ---------- TRIPS ---------- */
+function renderTrips(V){
+  const isAdmin=CURRENT.role==='admin';
+  const list=isAdmin?DB.all('trips'):DB.find('trips',t=>t.driverId===CURRENT.id);
+  const rows=list.slice().reverse().map(t=>{
+    const rem=t.returnActive?remainingCapacity(t):0;
+    return `<tr>
+      <td>${esc(t.origin)} → ${esc(t.destination)}</td>
+      <td>${t.originalStatus==='Completed'?'<span class="badge b-green">Completed</span>':'<span class="badge b-orange">'+esc(t.originalStatus)+'</span>'}</td>
+      <td>${t.returnActive?esc((t.returnStops||[]).join(' → ')):'<span class="badge b-gray">not active</span>'}</td>
+      <td>${t.returnActive?rem+' / '+t.returnCapacity+' kg':'—'}</td>
+      ${isAdmin?`<td>${esc(userName(t.driverId))}</td>`:''}
+      <td>${tripActions(t)}</td></tr>`;}).join('');
+  const head='<th>Original route</th><th>Original status</th><th>Return route</th><th>Free cap.</th>'+
+    (isAdmin?'<th>Driver</th>':'')+'<th>Actions</th>';
+  let form='';
+  if(CURRENT.role==='driver'){
+    const myV=DB.find('vehicles',v=>v.ownerId===CURRENT.id);
+    if(!myV.length){
+      form=`<div class="mini-note">🚚 <div>Register a vehicle first, then you can create trips.
+        <button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="go('vehicles')">Add vehicle</button></div></div>`;
+    }else{
+      const opts=myV.map(v=>`<option value="${v.id}">${esc(v.type)} · ${esc(v.regNo)} · ${v.capacity}kg</option>`).join('');
+      const cityOpts=CITY_NAMES.map(c=>`<option>${c}</option>`).join('');
+      form=panel('Create an original delivery trip',`
+        <form onsubmit="return addTrip(event)">
+          <div class="field"><label>Vehicle</label><select id="tVeh">${opts}</select></div>
+          <div class="row2">
+            <div class="field"><label>Starting location</label><select id="tOrigin">${cityOpts}</select></div>
+            <div class="field"><label>Destination</label><select id="tDest">${cityOpts}</select></div>
+          </div>
+          <button class="btn btn-primary">+ Create trip</button>
+        </form>`);
+    }
+  }
+  V.innerHTML=form+panel(isAdmin?'All trips':'My trips',tableWrap(head,rows));
+}
+function tripActions(t){
+  if(CURRENT.role!=='driver'||t.driverId!==CURRENT.id) return '—';
+  if(t.originalStatus!=='Completed')
+    return `<button class="btn btn-success btn-sm" onclick="completeTrip('${t.id}')">Mark delivered</button>`;
+  if(!t.returnActive)
+    return `<button class="btn btn-primary btn-sm" onclick="openReturnForm('${t.id}')">Activate return</button>`;
+  return `<button class="btn btn-ghost btn-sm" onclick="go('matching')">View matches</button>`;
+}
+function addTrip(e){
+  e.preventDefault();
+  const vehicleId=$('#tVeh').value, origin=$('#tOrigin').value, destination=$('#tDest').value;
+  if(origin===destination){ toast('Origin and destination must differ','bad'); return false; }
+  DB.insert('trips',{driverId:CURRENT.id,vehicleId,origin,destination,originalStatus:'In Progress',
+    returnActive:false,returnStops:[],returnCapacity:0});
+  toast('Trip created','ok'); go('trips'); return false;
+}
+function completeTrip(id){ DB.update('trips',id,{originalStatus:'Completed'});
+  toast('Original delivery completed — you can now activate the return leg','ok'); go('trips'); }
+
+function openReturnForm(id){
+  const t=DB.get('trips',id); const v=DB.get('vehicles',t.vehicleId);
+  // default return route = destination back towards origin
+  const cityOpts=sel=>CITY_NAMES.map(c=>`<option ${c===sel?'selected':''}>${c}</option>`).join('');
+  $('#view').innerHTML=panel('Activate return trip — '+esc(t.origin)+' → '+esc(t.destination),`
+    <div class="mini-note">♻️ <div>The vehicle is empty on the way back. Define the return route (ordered
+      stops) and how much spare capacity you can offer. The matching engine will find compatible requests.</div></div>
+    <form onsubmit="return saveReturn(event,'${id}')">
+      <div class="field"><label>Return start (usually your delivery destination)</label><select id="rs0">${cityOpts(t.destination)}</select></div>
+      <div class="field"><label>Via stop (optional)</label><select id="rs1"><option value="">— none —</option>${cityOpts('')}</select></div>
+      <div class="field"><label>Via stop (optional)</label><select id="rs2"><option value="">— none —</option>${cityOpts('')}</select></div>
+      <div class="field"><label>Return end</label><select id="rs3">${cityOpts(t.origin)}</select></div>
+      <div class="field"><label>Available return capacity (kg)</label>
+        <input id="rCap" type="number" min="1" max="${v?v.capacity:1000}" value="${v?v.capacity:50}">
+        <div class="hint">Vehicle max: ${v?v.capacity:'—'} kg</div></div>
+      <button class="btn btn-primary">Activate return & find matches</button>
+      <button type="button" class="btn btn-ghost" onclick="go('trips')">Cancel</button>
+    </form>`);
+}
+function saveReturn(e,id){
+  e.preventDefault();
+  const stops=['rs0','rs1','rs2','rs3'].map(x=>$('#'+x).value).filter(Boolean);
+  const uniq=stops.filter((s,i)=>stops.indexOf(s)===i);
+  if(uniq.length<2){ toast('Need at least a start and end','bad'); return false; }
+  const cap=+$('#rCap').value; if(!(cap>0)){ toast('Enter capacity','bad'); return false; }
+  DB.update('trips',id,{returnActive:true,returnStops:uniq,returnCapacity:cap,returnActivatedAt:nowISO()});
+  toast('Return trip activated','ok'); go('matching'); return false;
+}
+
+/* ---------- REQUESTS ---------- */
+function renderRequests(V){
+  if(CURRENT.role==='admin'){
+    const rows=DB.all('deliveryRequests').slice().reverse().map(r=>`<tr>
+      <td><b>${esc(r.product)}</b><br><small style="color:var(--muted)">${esc(r.category)}</small></td>
+      <td>${esc(userName(r.customerId))}</td><td>${esc(r.pickup)} → ${esc(r.destination)}</td>
+      <td>${r.weight} kg</td><td>${esc(r.dims||'—')}</td><td>${dateShort(r.deadline)}</td>
+      <td>${statusBadge(r.status)}</td></tr>`).join('');
+    V.innerHTML=panel('All delivery requests',tableWrap(
+      '<th>Product</th><th>Customer</th><th>Route</th><th>Weight</th><th>Dimensions</th><th>Deadline</th><th>Status</th>',rows));
+    return;
+  }
+  // customer: list own requests + available matching vehicles
+  const myR=DB.find('deliveryRequests',r=>r.customerId===CURRENT.id).slice().reverse();
+  const cards=myR.map(r=>{
+    const matches=matchesForRequest(r);
+    const booked=DB.find('bookings',b=>b.requestId===r.id && b.status!=='Cancelled')[0];
+    let inner;
+    if(booked){
+      inner=`<div class="mini-note" style="margin:0">✅ <div>Booked with ${esc(userName(booked.driverId))} ·
+        ${statusBadge(booked.status)} — track it in <b>My bookings</b>.</div></div>`;
+    }else if(r.status==='Request Submitted'||r.status==='Match Found'){
+      if(!matches.length){
+        inner=`<div class="empty" style="padding:16px">No compatible returning vehicles right now.
+          We'll keep checking as drivers publish return trips.</div>`;
+      }else{
+        inner=matches.slice(0,3).map(m=>returnOfferCard(m,r)).join('');
+      }
+    }else inner=`<div class="empty" style="padding:16px">${statusBadge(r.status)}</div>`;
+    return `<div class="panel"><div class="panel-head">
+        <h2>${esc(r.product)} <span class="badge b-gray" style="margin-left:6px">${esc(r.category)}</span></h2>
+        <div class="spacer"></div>${statusBadge(r.status)}</div>
+      <div class="panel-body">
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:12px;font-size:13.5px;color:var(--muted)">
+          <span>📍 <b style="color:var(--ink)">${esc(r.pickup)} → ${esc(r.destination)}</b></span>
+          <span>⚖️ ${r.weight} kg</span><span>📐 ${esc(r.dims||'—')}</span>
+          <span>🏷️ ${esc(r.handling||'Normal')}</span><span>⏰ by ${dateShort(r.deadline)}</span></div>
+        ${inner}</div></div>`;
+  }).join('') || `<div class="empty">You have no requests yet.
+     <button class="btn btn-primary btn-sm" style="margin-left:8px" onclick="go('newrequest')">Create one</button></div>`;
+  V.innerHTML=cards;
+}
+/* for a request, find active return trips whose route + capacity fit it */
+function matchesForRequest(req){
+  const out=[];
+  DB.find('trips',t=>t.returnActive).forEach(t=>{
+    const res=matchRequestsForTrip(t,{includeRejected:true}).find(x=>x.req.id===req.id);
+    if(res && res.feasible) out.push(res);
+  });
+  out.sort((a,b)=>b.score-a.score);
+  return out;
+}
+function returnOfferCard(m,r){
+  const t=m.trip, v=DB.get('vehicles',t.vehicleId), rem=remainingCapacity(t);
+  return `<div style="border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;
+      display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <div class="score" style="--p:${m.score}%"><i>${m.score}</i></div>
+    <div style="flex:1;min-width:200px">
+      <b>${esc(userName(t.driverId))}</b> · ${esc(v?v.type:'Vehicle')} ${esc(v?'('+v.regNo+')':'')}
+        &nbsp; ${phoneLink(t.driverId)}<br>
+      <small style="color:var(--muted)">Return: ${esc((t.returnStops||[]).join(' → '))}</small><br>
+      <small style="color:var(--muted)">Free capacity: <b>${rem} kg</b> · pickup ${m.dPick} km off route · ~${m.detourKm} km detour</small>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="bookMatch('${t.id}','${r.id}')">Book this vehicle</button>
+  </div>`;
+}
+function bookMatch(tripId,requestId){
+  const t=DB.get('trips',tripId), r=DB.get('deliveryRequests',requestId);
+  if(!t||!r) return;
+  if(DB.find('bookings',b=>b.requestId===requestId && b.status!=='Cancelled')[0]){
+    toast('This request is already booked','bad'); return; }
+  if(r.weight>remainingCapacity(t)){ toast('Capacity changed — no longer fits','bad'); go('requests'); return; }
+  const b=DB.insert('bookings',{tripId,requestId,driverId:t.driverId,customerId:r.customerId,
+    weight:r.weight,status:'Booking Confirmed'});
+  DB.update('deliveryRequests',requestId,{status:'Booking Confirmed'});
+  addTracking(b.id,'Request Submitted'); addTracking(b.id,'Match Found'); addTracking(b.id,'Booking Confirmed');
+  toast('Booking confirmed! Capacity updated.','ok'); go('bookings');
+}
+
+/* ---------- NEW REQUEST (customer) ---------- */
+function renderNewRequest(V){
+  const cityOpts=CITY_NAMES.map(c=>`<option>${c}</option>`).join('');
+  V.innerHTML=panel('Create a delivery request',`
+    <form onsubmit="return addRequest(event)">
+      <div class="row2">
+        <div class="field"><label>Pickup location</label><select id="qPick">${cityOpts}</select></div>
+        <div class="field"><label>Delivery destination</label><select id="qDest">${cityOpts}</select></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Product name</label><input id="qName" placeholder="e.g. Electronics parts"><div class="err" id="qNameErr"></div></div>
+        <div class="field"><label>Category</label><select id="qCat">
+          <option>Electronics</option><option>Clothing</option><option>Groceries</option>
+          <option>Furniture</option><option>Construction</option><option>Documents</option><option>Other</option></select></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Weight (kg)</label><input id="qWeight" type="number" min="0.1" step="0.1" placeholder="20"><div class="err" id="qWeightErr"></div></div>
+        <div class="field"><label>Dimensions (L×W×H cm)</label><input id="qDims" placeholder="60×40×40"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Handling / special care</label>
+          <select id="qHandle"><option>Normal</option><option>Fragile</option><option>Keep dry</option>
+            <option>Heavy/Fragile</option><option>Perishable</option><option>Hazardous</option></select></div>
+        <div class="field"><label>Delivery deadline</label><input id="qDead" type="date"><div class="err" id="qDeadErr"></div></div>
+      </div>
+      <button class="btn btn-primary">📦 Submit request</button>
+    </form>
+    <div class="mini-note" style="margin-top:16px">ℹ️ <div>We check more than weight — dimensions and handling
+      info help drivers confirm the goods physically fit and can be carried safely.</div></div>`);
+  const today=new Date(Date.now()+864e5).toISOString().slice(0,10);
+  $('#qDead').min=today; $('#qDead').value=new Date(Date.now()+3*864e5).toISOString().slice(0,10);
+}
+function addRequest(e){
+  e.preventDefault();
+  const pickup=$('#qPick').value, destination=$('#qDest').value, product=$('#qName').value.trim(),
+    category=$('#qCat').value, weight=+$('#qWeight').value, dims=$('#qDims').value.trim(),
+    handling=$('#qHandle').value, deadline=$('#qDead').value;
+  ['qNameErr','qWeightErr','qDeadErr'].forEach(i=>$('#'+i).textContent='');
+  let bad=false;
+  if(!product){ $('#qNameErr').textContent='Enter product name'; bad=true; }
+  if(!(weight>0)){ $('#qWeightErr').textContent='Enter a valid weight'; bad=true; }
+  if(!deadline){ $('#qDeadErr').textContent='Pick a deadline'; bad=true; }
+  if(pickup===destination){ toast('Pickup and destination must differ','bad'); bad=true; }
+  if(bad) return false;
+  DB.insert('deliveryRequests',{customerId:CURRENT.id,product,category,weight,dims,handling,
+    pickup,destination,deadline:new Date(deadline).toISOString(),status:'Request Submitted'});
+  toast('Request submitted — finding matches','ok'); go('requests'); return false;
+}
+
+/* ---------- MATCHING (driver) ---------- */
+function renderMatching(V){
+  const myReturns=DB.find('trips',t=>t.driverId===CURRENT.id && t.returnActive);
+  if(!myReturns.length){
+    V.innerHTML=`<div class="empty">No active return trips. Create a trip, mark it completed, then
+      activate its return leg.<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="go('trips')">Go to trips</button></div>`;
+    return;
+  }
+  const options=myReturns.map((t,i)=>`<option value="${t.id}">${esc((t.returnStops||[]).join(' → '))} · ${remainingCapacity(t)}kg free</option>`).join('');
+  V.innerHTML=`
+    <div class="panel"><div class="panel-head"><h2>🧠 Smart return-route matching</h2><div class="spacer"></div>
+      <select id="matchTrip" onchange="runMatch()" style="min-width:260px">${options}</select></div>
+      <div class="panel-body">
+        <div class="mini-note">🧠 <div>The engine checks each open request against this return route:
+          corridor proximity (≤${CORRIDOR_KM} km), travel direction, remaining capacity and deadline.
+          Feasible options are ranked by score. Rejected ones show why.</div></div>
+        <div id="matchOut"></div>
+      </div></div>`;
+  runMatch();
+}
+function runMatch(){
+  const tripId=$('#matchTrip').value, t=DB.get('trips',tripId);
+  const rows=matchRequestsForTrip(t,{includeRejected:true});
+  const rem=remainingCapacity(t), used=allocatedWeight(t), pct=Math.round(used/t.returnCapacity*100)||0;
+  const cls=pct>=100?'full':pct>=75?'warn':'';
+  const capHTML=`<div style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between"><b>Capacity</b>
+      <span>${used} / ${t.returnCapacity} kg used · <b style="color:var(--green)">${rem} kg free</b></span></div>
+    <div class="capbar ${cls}"><span style="width:${Math.min(100,pct)}%"></span></div></div>`;
+  const feas=rows.filter(r=>r.feasible), rej=rows.filter(r=>!r.feasible);
+  const feasRows=feas.map(m=>{
+    const r=m.req, already=DB.find('bookings',b=>b.requestId===r.id&&b.status!=='Cancelled')[0];
+    return `<tr>
+      <td><div class="score" style="--p:${m.score}%"><i>${m.score}</i></div></td>
+      <td><b>${esc(r.product)}</b><br><small style="color:var(--muted)">${esc(r.category)} · ${esc(r.handling||'Normal')}</small></td>
+      <td>${esc(userName(r.customerId))}<br>${phoneLink(r.customerId)}</td>
+      <td>${esc(r.pickup)} → ${esc(r.destination)}<br><small style="color:var(--muted)">pickup ${m.dPick}km · drop ${m.dDrop}km off route</small></td>
+      <td>${r.weight} kg</td><td>~${m.detourKm} km</td><td>${dateShort(r.deadline)}</td>
+      <td>${already?'<span class="badge b-green">accepted</span>':
+        `<button class="btn btn-success btn-sm" onclick="acceptRequest('${t.id}','${r.id}')">Accept</button>
+         <button class="btn btn-ghost btn-sm" onclick="rejectRequest('${r.id}')">Reject</button>`}</td></tr>`;
+  }).join('');
+  const feasTable=tableWrap(
+    '<th>Score</th><th>Product</th><th>Customer</th><th>Route fit</th><th>Weight</th><th>Detour</th><th>Deadline</th><th>Action</th>',
+    feasRows);
+  const rejRows=rej.map(m=>`<tr><td><b>${esc(m.req.product)}</b></td>
+    <td>${esc(m.req.pickup)} → ${esc(m.req.destination)}</td><td>${m.req.weight} kg</td>
+    <td><small style="color:var(--red)">${m.reasons.map(esc).join('; ')}</small></td></tr>`).join('');
+  const rejTable=rej.length?`<h3 style="margin:22px 0 10px;color:var(--navy);font-size:15px">Incompatible requests (${rej.length})</h3>`+
+    tableWrap('<th>Product</th><th>Route</th><th>Weight</th><th>Why rejected</th>',rejRows):'';
+  $('#matchOut').innerHTML=capHTML+
+    `<h3 style="margin:6px 0 10px;color:var(--navy);font-size:15px">Feasible matches (${feas.length})</h3>`+
+    feasTable+rejTable;
+}
+function acceptRequest(tripId,requestId){
+  const t=DB.get('trips',tripId), r=DB.get('deliveryRequests',requestId);
+  if(DB.find('bookings',b=>b.requestId===requestId&&b.status!=='Cancelled')[0]){ toast('Already booked','bad'); return; }
+  if(r.weight>remainingCapacity(t)){ toast('Not enough remaining capacity','bad'); runMatch(); return; }
+  const b=DB.insert('bookings',{tripId,requestId,driverId:t.driverId,customerId:r.customerId,
+    weight:r.weight,status:'Booking Confirmed'});
+  DB.update('deliveryRequests',requestId,{status:'Booking Confirmed'});
+  addTracking(b.id,'Request Submitted'); addTracking(b.id,'Match Found'); addTracking(b.id,'Booking Confirmed');
+  toast('Request accepted — capacity updated','ok'); runMatch();
+}
+function rejectRequest(requestId){
+  DB.update('deliveryRequests',requestId,{status:'Rejected by driver'});
+  toast('Request hidden from this trip','info'); runMatch();
+  // note: simple demo — mark back to submitted so other drivers can still match
+  setTimeout(()=>DB.update('deliveryRequests',requestId,{status:'Request Submitted'}),50);
+}
+
+/* ---------- BOOKINGS ---------- */
+function renderBookings(V){
+  let list;
+  if(CURRENT.role==='admin') list=DB.all('bookings');
+  else if(CURRENT.role==='driver') list=DB.find('bookings',b=>b.driverId===CURRENT.id);
+  else list=DB.find('bookings',b=>b.customerId===CURRENT.id);
+  list=list.slice().reverse();
+  const rows=list.map(b=>{
+    const r=DB.get('deliveryRequests',b.requestId), t=DB.get('trips',b.tripId);
+    const next=STATUS_FLOW[STATUS_FLOW.indexOf(b.status)+1];
+    let action='—';
+    if(CURRENT.role==='driver' && b.status!=='Delivered' && b.status!=='Cancelled'){
+      action=`<button class="btn btn-primary btn-sm" onclick="advanceBooking('${b.id}')">→ ${esc(next||'Delivered')}</button>`;
+      if(b.status==='Booking Confirmed') action+=` <button class="btn btn-ghost btn-sm" onclick="cancelBooking('${b.id}')">Cancel</button>`;
+    } else if(CURRENT.role==='customer'){
+      action=`<button class="btn btn-ghost btn-sm" onclick="trackBooking('${b.id}')">Track</button>`;
+    }
+    return `<tr>
+      <td><b>${esc(r?r.product:'—')}</b><br><small style="color:var(--muted)">${r?esc(r.pickup)+' → '+esc(r.destination):''}</small></td>
+      ${CURRENT.role!=='customer'?`<td>${esc(userName(b.customerId))}<br>${phoneLink(b.customerId)}</td>`:''}
+      ${CURRENT.role!=='driver'?`<td>${esc(userName(b.driverId))}<br>${phoneLink(b.driverId)}</td>`:''}
+      <td>${b.weight} kg</td><td>${statusBadge(b.status)}</td><td>${action}</td></tr>`;
+  }).join('');
+  const head=`<th>Product</th>${CURRENT.role!=='customer'?'<th>Customer</th>':''}${CURRENT.role!=='driver'?'<th>Driver</th>':''}<th>Weight</th><th>Status</th><th>Action</th>`;
+  V.innerHTML=panel(CURRENT.role==='driver'?'Accepted jobs':CURRENT.role==='customer'?'My bookings':'All bookings',
+    tableWrap(head,rows));
+}
+function advanceBooking(id){
+  const b=DB.get('bookings',id); const i=STATUS_FLOW.indexOf(b.status);
+  const next=STATUS_FLOW[i+1]; if(!next) return;
+  DB.update('bookings',id,{status:next}); addTracking(id,next);
+  DB.update('deliveryRequests',b.requestId,{status:next==='Delivered'?'Delivered':next});
+  toast('Status → '+next,'ok'); go('bookings');
+}
+function cancelBooking(id){
+  if(!confirm('Cancel this booking? Capacity will be freed.')) return;
+  const b=DB.get('bookings',id); DB.update('bookings',id,{status:'Cancelled'}); addTracking(id,'Cancelled');
+  DB.update('deliveryRequests',b.requestId,{status:'Request Submitted'});
+  toast('Booking cancelled, capacity freed','info'); go('bookings');
+}
+function trackBooking(id){ go('tracking'); setTimeout(()=>{const s=$('#trkSel'); if(s){s.value=id; drawTracking();}},30); }
+
+/* ---------- TRACKING ---------- */
+function addTracking(bookingId,status){ DB.insert('trackingHistory',{bookingId,status,at:nowISO()}); }
+function renderTracking(V){
+  const myB=DB.find('bookings',b=>b.customerId===CURRENT.id);
+  if(!myB.length){ V.innerHTML=`<div class="empty">No bookings to track yet.</div>`; return; }
+  const opts=myB.slice().reverse().map(b=>{const r=DB.get('deliveryRequests',b.requestId);
+    return `<option value="${b.id}">${esc(r?r.product:'Booking')} · ${esc(b.status)}</option>`;}).join('');
+  V.innerHTML=`<div class="panel"><div class="panel-head"><h2>🚦 Track delivery</h2><div class="spacer"></div>
+      <select id="trkSel" onchange="drawTracking()" style="min-width:240px">${opts}</select></div>
+    <div class="panel-body"><div id="trkBody"></div></div></div>`;
+  drawTracking();
+}
+function drawTracking(){
+  const id=$('#trkSel').value, b=DB.get('bookings',id);
+  const r=DB.get('deliveryRequests',b.requestId), t=DB.get('trips',b.tripId);
+  const hist=DB.find('trackingHistory',h=>h.bookingId===id).sort((a,b)=>new Date(a.at)-new Date(b.at));
+  const curIdx=STATUS_FLOW.indexOf(b.status);
+  const items=STATUS_FLOW.map((s,i)=>{
+    const h=hist.find(x=>x.status===s);
+    const cls=b.status==='Cancelled'?'':(i<curIdx?'done':i===curIdx?'active':'');
+    return `<li class="${cls}"><h5>${esc(s)}</h5><small>${h?dtShort(h.at):(i<=curIdx?'done':'pending')}</small></li>`;
+  }).join('');
+  const cancelled=b.status==='Cancelled'?`<div class="mini-note" style="background:var(--red-50);border-color:#f6d4d4">⚠ <div>This booking was cancelled.</div></div>`:'';
+  $('#trkBody').innerHTML=`
+    ${cancelled}
+    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px;font-size:13.5px;color:var(--muted)">
+      <span>📦 <b style="color:var(--ink)">${esc(r?r.product:'')}</b></span>
+      <span>📍 ${esc(r?r.pickup:'')} → ${esc(r?r.destination:'')}</span>
+      <span>🚚 ${esc(userName(b.driverId))}</span><span>${phoneLink(b.driverId)}</span><span>⚖️ ${b.weight} kg</span></div>
+    <div class="mini-note">🛰️ <div><b>Simulated tracking</b> — this demo has no live GPS. Status updates are
+      driver-entered and timestamps are simulated.</div></div>
+    <ul class="timeline">${items}</ul>`;
+}
+
+/* ---------- MAP ---------- */
+function renderMap(V){
+  V.innerHTML=`<div class="panel"><div class="panel-head"><h2>🗺️ Routes & stops</h2><div class="spacer"></div>
+      <select id="mapTrip" onchange="drawMap()" style="min-width:240px"></select></div>
+    <div class="panel-body">
+      <div id="map"></div>
+      <div class="map-legend">
+        <span class="lg"><span class="pin" style="background:#0b2447"></span> Original route</span>
+        <span class="lg"><span class="pin" style="background:#f97316"></span> Return route</span>
+        <span class="lg"><span class="pin" style="background:#16a34a"></span> Pickup</span>
+        <span class="lg"><span class="pin" style="background:#2563eb"></span> Drop-off</span>
+        <span class="lg"><span class="pin" style="background:#dc2626"></span> Vehicle position (simulated)</span>
+      </div></div></div>`;
+  // choose trips to show
+  let trips;
+  if(CURRENT.role==='driver') trips=DB.find('trips',t=>t.driverId===CURRENT.id);
+  else if(CURRENT.role==='customer'){
+    const tripIds=new Set(DB.find('bookings',b=>b.customerId===CURRENT.id).map(b=>b.tripId));
+    trips=DB.all('trips').filter(t=>tripIds.has(t.id)||t.returnActive);
+  } else trips=DB.all('trips').filter(t=>t.returnActive||t.originalStatus!=='Completed');
+  const sel=$('#mapTrip');
+  sel.innerHTML=trips.length?trips.map(t=>`<option value="${t.id}">${esc(t.origin)} → ${esc(t.destination)}${t.returnActive?' (return active)':''}</option>`).join('')
+    :'<option value="">No trips to show</option>';
+  mapObj=L.map('map').setView([16.5,79.5],7);
+  addTileLayer();
+  drawMap();
+}
+/* Tile providers tried in order. OSM's public server returns 403
+   "Access blocked" when the app is opened from a local file:// path, so we
+   default to providers that serve those requests, and fall through the list
+   automatically if any one errors. All are free and need no API key. */
+const TILE_PROVIDERS=[
+  {url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+   opts:{maxZoom:19,attribution:'Tiles © Esri'}},
+  {url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+   opts:{maxZoom:19,subdomains:'abcd',attribution:'© OpenStreetMap contributors, © CARTO'}},
+  {url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+   opts:{maxZoom:19,attribution:'© OpenStreetMap contributors'}}
+];
+let tileLayerRef=null, tileProviderIdx=0, tileErrCount=0;
+function addTileLayer(){
+  const p=TILE_PROVIDERS[tileProviderIdx];
+  tileErrCount=0;
+  tileLayerRef=L.tileLayer(p.url,p.opts).addTo(mapObj);
+  tileLayerRef.on('tileerror',()=>{
+    // a handful of errors from one provider => move to the next one
+    if(++tileErrCount<4) return;
+    if(tileProviderIdx>=TILE_PROVIDERS.length-1) return; // last resort, keep it
+    tileProviderIdx++;
+    if(tileLayerRef) mapObj.removeLayer(tileLayerRef);
+    addTileLayer();
+  });
+}
+function pin(color){ return L.divIcon({className:'',html:`<div style="width:20px;height:20px;background:${color};
+  border:2px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 5px rgba(0,0,0,.4)"></div>`,
+  iconSize:[20,20],iconAnchor:[10,18]}); }
+function drawMap(){
+  if(!mapObj) return;
+  // clear overlays
+  mapObj.eachLayer(l=>{ if(!(l instanceof L.TileLayer)) mapObj.removeLayer(l); });
+  const t=DB.get('trips',$('#mapTrip').value); if(!t) return;
+  const bounds=[];
+  const addMarker=(name,color,label)=>{ const c=coordOf(name); if(!c)return;
+    L.marker(c,{icon:pin(color)}).addTo(mapObj).bindPopup(`<b>${label}</b><br>${name}`); bounds.push(c); };
+  // original route
+  const o=coordOf(t.origin), d=coordOf(t.destination);
+  if(o&&d){ L.polyline([o,d],{color:'#0b2447',weight:4,opacity:.7}).addTo(mapObj);
+    addMarker(t.origin,'#0b2447','Origin'); addMarker(t.destination,'#113a6b','Delivery destination'); }
+  // return route
+  if(t.returnActive){
+    const rc=(t.returnStops||[]).map(coordOf).filter(Boolean);
+    if(rc.length>1){ L.polyline(rc,{color:'#f97316',weight:4,dashArray:'8 6'}).addTo(mapObj); rc.forEach(c=>bounds.push(c)); }
+    (t.returnStops||[]).forEach((s,i)=>{ if(i>0&&i<t.returnStops.length-1) addMarker(s,'#fb923c','Return stop'); });
+    // bookings on this trip -> pickups & drops
+    DB.find('bookings',b=>b.tripId===t.id && b.status!=='Cancelled').forEach(b=>{
+      const r=DB.get('deliveryRequests',b.requestId); if(!r)return;
+      addMarker(r.pickup,'#16a34a','Pickup · '+r.product);
+      addMarker(r.destination,'#2563eb','Drop-off · '+r.product);
+    });
+    // simulated vehicle position along return route by status progress
+    const anyB=DB.find('bookings',b=>b.tripId===t.id && b.status!=='Cancelled')[0];
+    if(anyB && rc.length>1){
+      const prog=Math.min(1,Math.max(0,STATUS_FLOW.indexOf(anyB.status)/ (STATUS_FLOW.length-1)));
+      const pos=interpRoute(rc,prog);
+      if(pos){ L.marker(pos,{icon:pin('#dc2626')}).addTo(mapObj).bindPopup('🚚 Vehicle (simulated position)'); bounds.push(pos); }
+    }
+  }
+  if(bounds.length) mapObj.fitBounds(bounds,{padding:[40,40]});
+  setTimeout(()=>mapObj.invalidateSize(),100);
+}
+function interpRoute(route,frac){
+  let cum=[0]; for(let i=1;i<route.length;i++) cum[i]=cum[i-1]+haversine(route[i-1],route[i]);
+  const total=cum[cum.length-1]; const target=frac*total;
+  for(let i=1;i<route.length;i++){ if(cum[i]>=target){ const seg=cum[i]-cum[i-1]||1;
+    const tt=(target-cum[i-1])/seg; return [route[i-1][0]+tt*(route[i][0]-route[i-1][0]),
+      route[i-1][1]+tt*(route[i][1]-route[i-1][1])]; } }
+  return route[route.length-1];
+}
+
+/* =========================================================================
+   BOOT
+   ========================================================================= */
+/* Backfill phone numbers onto demo accounts seeded by an earlier version
+   (localStorage keeps old data, so re-seeding wouldn't run). */
+function migrateDemoPhones(){
+  const phones={'admin@demo.io':'9000000001','driver@demo.io':'9876500011',
+    'driver2@demo.io':'9876500022','customer@demo.io':'9123400011',
+    'customer2@demo.io':'9123400022','customer3@demo.io':'9123400033'};
+  let changed=false;
+  DB.all('users').forEach(u=>{
+    if((!u.phone||u.phone==='') && phones[u.email]){ u.phone=phones[u.email]; changed=true; }
+  });
+  if(changed) DB.save();
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  DB.load();
+  if(!DB.all('users').length) seedDemo(false);   // first run: provide demo accounts
+  migrateDemoPhones();                            // ensure demo accounts have phones
+  if(Auth.current()) enterApp(); else showLanding();
+});
+</script>
+</body>
+</html>
